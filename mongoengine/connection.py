@@ -1,4 +1,5 @@
 from pymongo import MongoClient, ReadPreference, uri_parser
+from mongoengine import mongo_proxy
 from mongoengine.python_support import IS_PYMONGO_3
 
 __all__ = ['ConnectionError', 'connect', 'register_connection',
@@ -25,6 +26,7 @@ _dbs = {}
 def register_connection(alias, name=None, host=None, port=None,
                         read_preference=READ_PREFERENCE,
                         username=None, password=None, authentication_source=None,
+                        max_retries=None, retry_interval=None,
                         **kwargs):
     """Add a connection.
 
@@ -40,6 +42,10 @@ def register_connection(alias, name=None, host=None, port=None,
     :param authentication_source: database to authenticate against
     :param is_mock: explicitly use mongomock for this connection
         (can also be done by using `mongomock://` as db host prefix)
+    :param max_retries: the number of retries to attempt reconnect upon pymongo
+        AutoReconnect exception
+    :param retry_interval: the interval in seconds between retries of
+        reconnection
     :param kwargs: allow ad-hoc parameters to be passed into the pymongo driver
 
     .. versionchanged:: 0.10.6 - added mongomock support
@@ -53,7 +59,9 @@ def register_connection(alias, name=None, host=None, port=None,
         'read_preference': read_preference,
         'username': username,
         'password': password,
-        'authentication_source': authentication_source
+        'authentication_source': authentication_source,
+        'max_retries': max_retries or 0,
+        'retry_interval': retry_interval or 1,
     }
 
     # Handle uri style connections
@@ -113,6 +121,9 @@ def get_connection(alias=DEFAULT_CONNECTION_NAME, reconnect=False):
         conn_settings.pop('username', None)
         conn_settings.pop('password', None)
         conn_settings.pop('authentication_source', None)
+        # TODO(sshen) Per connection settings for MongoProxy
+        conn_settings.pop('max_retries', None)
+        conn_settings.pop('retry_interval', None)
 
         is_mock = conn_settings.pop('is_mock', None)
         if is_mock:
@@ -151,7 +162,10 @@ def get_connection(alias=DEFAULT_CONNECTION_NAME, reconnect=False):
                     connection = _connections[db_alias]
                     break
 
-            _connections[alias] = connection if connection else connection_class(**conn_settings)
+            _connections[alias] = (
+                connection if connection else
+                mongo_proxy.MongoProxy(connection_class(**conn_settings))
+            )
         except Exception, e:
             raise ConnectionError("Cannot connect to database %s :\n%s" % (alias, e))
     return _connections[alias]
