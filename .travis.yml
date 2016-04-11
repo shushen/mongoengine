@@ -31,17 +31,3 @@ install:
 script:
 - tox -e $(echo py$TRAVIS_PYTHON_VERSION-mg$PYMONGO | tr -d . | sed -e 's/pypypy/pypy/') -- --with-coverage
 after_script: coveralls --verbose
-notifications:
-  irc: irc.freenode.org#mongoengine
-branches:
-  only:
-  - master
-  - /^v.*$/
-deploy:
-  provider: pypi
-  user: the_drow
-  password:
-    secure: QMyatmWBnC6ZN3XLW2+fTBDU4LQcp1m/LjR2/0uamyeUzWKdlOoh/Wx5elOgLwt/8N9ppdPeG83ose1jOz69l5G0MUMjv8n/RIcMFSpCT59tGYqn3kh55b0cIZXFT9ar+5cxlif6a5rS72IHm5li7QQyxexJIII6Uxp0kpvUmek=
-  on:
-    tags: true
-    repo: MongoEngine/mongoengine
